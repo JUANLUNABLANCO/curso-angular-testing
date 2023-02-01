@@ -4,7 +4,7 @@
 
 # LINK TO GITHUB PROJECT
 
-[LINK TO GITHUG PROJECT](https://github.com/platzi/curso-angular-unit-testing-servicios/)
+[LINK TO GITHUG PROJECT platzi](https://github.com/platzi/curso-angular-unit-testing-servicios/)
 
 # LINK TO APP IN PRODUCTION NETLIFY
 
@@ -21,7 +21,7 @@ Juan Manuel Luna Blanco
 [Youtube: desarrolladorhoy](https://www.youtube.com/channel/UCSEwIRkDJxLkbvKHOAcw_Xw)
 [Youtube: Kryptonite](https://www.youtube.com/channel/UCSEwIRkDJxLkbvKHOAcw_Xw)
 
-[LINK GITHUB PROYECT]()
+[LINK GITHUB PROYECT mine](https://github.com/JUANLUNABLANCO/curso-angular-testing)
 
 ## INSTALACIONES
 
@@ -246,7 +246,7 @@ git branch -M  main
 
 	> git remote add origin https://github.com/JUANLUNABLANCO/<tu-repo>.git -->
 
-  
+
 	> git remote add origin https://github.com/JUANLUNABLANCO/curso-angular-testing.git
 	> git config --list
 	> git add .
@@ -292,16 +292,9 @@ tras esa configuración y para que surta efecto debes de hacer lo siguiente
 
 ## npm aditional installations
 
-  // WARNING Este proyecto está creado con la versión 10.07 de angular, copiado del repo de platzi rama init
-
-	> npm install --save date-fns
-  > npm install --save @angular/fire
-  > npm install --save @angular/material
-  > npm install --save firebase
-  > npm install --save flexboxgrid
-  > npm install --save swiper
-
-  > npm install --save-dev ts-node
+  // WARNING Este está en el original, nose si nos hará falta "@types/node": "^12.11.1",
+  // y este lo habiamos instalado para ejecutar typescript sin necesidad de build en otros proyectos.
+  // > npm install --save-dev ts-node ????
 
 
 ## SOME STUFF PROBLEMS IN ANGULAR WITH EXTERNAL DEPENDENCIES
@@ -325,6 +318,9 @@ angular.json
                             "zone.js"
                         ],
                         "tsConfig": "tsconfig.app.json",
+                        // ############################# ADDED
+                        "karmaConfig": "karma.conf.js",
+                        // ############################# ADDED
                         "inlineStyleLanguage": "scss",
                         "assets": [
                             "src/favicon.ico",
@@ -344,3 +340,620 @@ listo wei, solucionado
 
 
 ## star course
+
+## testing- introduction [vídeo-1]
+
+![tecnologías usadas en ng](snapshots/001_tecnologies-ng.png)
+
+![Frameworks y librerias testing for angular](snapshots/002_jasmine-karma.png)
+## Jest vs. Jasmine [vídeo-2]
+
+![code-jasmine](snapshots/003_jasmine-test-code.png)
+
+![code-jest](snapshots/004_jest-test-code.png)
+
+Estos matchers, son exactamente igulaes a los de jest:
+
+![matchers de jasmine](snapshots/005_matchers-utilities.png)
+
+Karma.config es la configuración del test runner de karma
+
+un archivo de pruebas tipico es aquel que se genera automáticamente con el cli cuando creamos un ocmponente o un servicio o lo que sea y termina en .spec.ts dentro de la carpeta del propio componente o servicio.
+
+app.component.spec.ts
+```
+import { TestBed } from '@angular/core/testing';
+import { AppComponent } from './app.component';
+
+describe('AppComponent', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      declarations: [
+        AppComponent
+      ],
+    }).compileComponents();
+  });
+
+  it('should create the app', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    expect(app).toBeTruthy();
+  });
+
+  it(`should have as title '07-curso-angular-testing'`, () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    expect(app.title).toEqual('07-curso-angular-testing');
+  });
+
+  it('should render title', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.content span')?.textContent).toContain('07-curso-angular-testing app is running!');
+  });
+});
+```
+
+El '.spec' viene de especificaciones del contrato entre, el test o requisitos de prueba y la app
+
+Podría llamarse '.test' sin problemas, pero angular nos lo proporciona así.
+
+> ng test
+
+// CONFIGURATION EXTRA
+
+Hay que configurar algunas cosas en w10, debes tener WSL instalado
+
+Hay que instalar un chrome en el core de linux para que funcionen las pruebas???
+
+Esto sería, en WSL línea de comandos:
+
+```
+sudo apt update && sudo apt -y upgrade && sudo apt -y autoremove
+
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo apt -y install ./google-chrome-stable_current_amd64.deb
+
+google-chrome --version
+```
+Esto es para versiones anteriores de angular, puesto que con esta version v15.0^ no he necesitado hacer nada de esto y funciona perfectamente. Y si escribimos google-chrome --version en consola no existe ese comando.
+
+Después deberías poner en Karma.conf.js esto
+
+        browsers: ['Chrome'],  // sustituir por esto otro  
+        browsers: ['ChromeHeadless'],
+
+
+// WARNING 
+
+De hecho, no tengo karma.con.js, no tengo WSL, no tengo instalado el google-chrome en el wsl, y hago ng test y funciona, no es necesario en versiones superiores a v15.0, configurar karma
+
+// WARNING 
+
+## Primeras pruebas con angular [vídeo-3]
+
+creamos una simulación de calculadora
+
+calculator.ts
+```
+export class Calculator {
+  multiply(a: number, b: number) {
+    return a * b;
+  }
+
+  divide(a: number, b: number) {
+    if (b === 0) {
+      return null;
+    }
+    return a / b;
+  }
+}
+```
+
+calculator.spec.ts
+```
+import { Calculator } from './calculator';
+
+describe('Test for Calculator', () => {
+  it('#multiply should return a nine', () => {
+    //Arrange
+    const calculator = new Calculator();
+    //Act
+    const rta = calculator.multiply(3,3);
+    //Assert
+    expect(rta).toEqual(9);
+  });
+  it('#multiply 1*4 should return a 4', () => {
+    //Arrange
+    const calculator = new Calculator();
+    //Act
+    const rta = calculator.multiply(1,4);
+    //Assert
+    expect(rta).toEqual(4);
+  });
+  it('#divide some numbers should return a null o numbers', () => {
+    //Arrange
+    const calculator = new Calculator();
+    //Act
+    expect(calculator.divide(9,0)).toEqual(null);
+    //
+    expect(calculator.divide(9,1)).toEqual(9);
+  });
+  it('#divide some numbers should return a null o numbers', () => {
+    //Arrange
+    const calculator = new Calculator();
+    //Act
+    expect(calculator.divide(9,0)).toEqual(null);
+    //
+    expect(calculator.divide(9,.5)).toBeGreaterThan(10);
+    expect(calculator.divide(9,.5) === 18).toBeTruthy();
+  });
+});
+
+```
+
+## Explorando matchers [vídeo-04]
+## reporte de cobertura [vídeo-5]
+
+> ng test --no-watch --code-coverage
+
+```
+=============================== Coverage summary ===============================
+Statements   : 100% ( 7/7 )
+Branches     : 100% ( 1/1 )
+Functions    : 100% ( 3/3 )
+Lines        : 100% ( 6/6 )
+================================================================================
+```
+
+A parte de esta información obtenemos una web en la carpeta coverage
+
+si pones fdescribe delante de una prueba, solo ejecutará esa prueba
+  1. con fdescribeejecuta únicamente el suite de test
+
+  2. con xdescribe se omite el suite de test
+
+  3. con fit ejecuta el focus sobre un test
+
+  4. con xit se omite un test
+
+además se focalizará para ver si se ejecutan o no, todas las líneas de ese fdescribe()
+
+Podemos forzar a un 80& de cobertura, para que de error, ...
+
+karma.con.js
+```
+ ...
+ 
+  coverageReporter: {
+      dir: require('path').join(__dirname, './coverage/ng-testing-services'),
+      subdir: '.',
+      // #################### added
+      reporters: [
+          { type: 'html' },
+          { type: 'text-summary' }
+      ],
+      check: {
+        global: {
+          statements: 80,
+          branches: 80,
+          functions: 60,
+          lines: 80
+        }
+      }
+      // #################### added
+```
+
+// NO ME HACE NI CASO
+
+karma.conf.js
+```
+// Karma configuration file, see link for more information
+// https://karma-runner.github.io/1.0/config/configuration-file.html
+
+module.exports = function(config) {
+    config.set({
+        basePath: '',
+        frameworks: ['jasmine', '@angular-devkit/build-angular'],
+        plugins: [
+            require('karma-jasmine'),
+            require('karma-chrome-launcher'),
+            require('karma-jasmine-html-reporter'),
+            require('karma-coverage'),
+            require('@angular-devkit/build-angular/plugins/karma')
+        ],
+        client: {
+            jasmine: {
+                // you can add configuration options for Jasmine here
+                // the possible options are listed at https://jasmine.github.io/api/edge/Configuration.html
+                // for example, you can disable the random execution with `random: false`
+                // or set a specific seed with `seed: 4321`
+            },
+            clearContext: false // leave Jasmine Spec Runner output visible in browser
+        },
+        jasmineHtmlReporter: {
+            suppressAll: true // removes the duplicated traces
+        },
+        coverageReporter: {
+            dir: require('path').join(__dirname, './coverage/ng-testing-services'),
+            subdir: '.',
+            reporters: [
+                { type: 'html' },
+                { type: 'text-summary' }
+            ],
+            check: {
+                global: {
+                    statements: 80,
+                    branches: 80,
+                    functions: 80,
+                    lines: 80
+                }
+            }
+        },
+        reporters: ['progress', 'kjhtml'],
+        port: 9876,
+        colors: true,
+        logLevel: config.LOG_INFO,
+        autoWatch: true,
+        browsers: ['ChromeHeadless'],
+        singleRun: false,
+        restartOnFileChange: true
+    });
+};
+```
+
+## Mocha reporter [vídeo-6]
+
+> npm i karma-mocha-reporter --save-dev
+
+
+karma.conf.js
+```
+// Karma configuration file, see link for more information
+// https://karma-runner.github.io/1.0/config/configuration-file.html
+
+module.exports = function(config) {
+    config.set({
+        basePath: '',
+        frameworks: ['jasmine', '@angular-devkit/build-angular'],
+        plugins: [
+            require('karma-jasmine'),
+            require('karma-chrome-launcher'),
+            require('karma-jasmine-html-reporter'),
+            require('karma-coverage'),
+            require('@angular-devkit/build-angular/plugins/karma'),
+            // ADDED HERE ########################################
+            require('karma-mocha-reporter')
+            // ADDED HERE ########################################
+        ],
+        client: {
+            jasmine: {
+                // you can add configuration options for Jasmine here
+                // the possible options are listed at https://jasmine.github.io/api/edge/Configuration.html
+                // for example, you can disable the random execution with `random: false`
+                // or set a specific seed with `seed: 4321`
+            },
+            clearContext: false // leave Jasmine Spec Runner output visible in browser
+        },
+        jasmineHtmlReporter: {
+            suppressAll: true // removes the duplicated traces
+        },
+        coverageReporter: {
+            dir: require('path').join(__dirname, './coverage/ng-testing-services'),
+            subdir: '.',
+            reporters: [
+                { type: 'html' },
+                { type: 'text-summary' }
+            ],
+            check: {
+                global: {
+                    statements: 90,
+                    branches: 90,
+                    functions: 90,
+                    lines: 90
+                }
+            }
+        },
+        // CHANGED HERE ########################################
+        // reporters: ['progress', 'kjhtml']
+        reporters: ['mocha'],
+        // CHANGED HERE ########################################
+            
+        port: 9876,
+        colors: true,
+        logLevel: config.LOG_INFO,
+        autoWatch: true,
+        browsers: ['ChromeHeadless'],
+        singleRun: false,
+        restartOnFileChange: true
+    });
+};
+```
+
+calculator.spec.ts
+```
+describe('Test for Calculator', () => {
+  describe('Multiuply()', ()=> {
+
+```
+anidamiento de describe for better logs
+
+## Pruebas de servicios [vídeo-7]
+
+> ng generate service value
+
+value.service.ts
+```
+import { Injectable } from '@angular/core';
+import { of } from 'rxjs';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ValueService {
+
+  private value = 'my value';
+
+  constructor() { }
+
+  getValue(): string {
+    return this.value;
+  }
+  setValue(value: string) {
+    this.value = value;
+  }
+
+  getpromiseValue() {
+    return Promise.resolve('promise value');
+  }
+
+  getObservableValue() {
+    return of('observable value');
+  }
+}
+```
+
+value.spec.ts
+```
+it('should return "promise value" from a promise', (doneFn)=>{
+      service.getPromiseValue()
+      .then((value)=>{
+        expect(value).toBe("promise value");
+        doneFn();
+      });
+```
+promesas
+
+```
+describe('Tests for getPromiseValue()', ()=>{
+    it('should return "promise value" from a promise', async ()=>{
+      const rta = await service.getPromiseValue()
+      expect(rta).toBe("promise value");
+      });
+    });
+```
+
+## servicios con dependencias [vídeo-8]
+
+> ng g s services/master
+
+> ng g s services/value-fake
+
+![getvalue](snapshots/006_getValue.png)
+
+La responsabilidad de valueService es retornar un valor
+la responsabilidad de masterService es comprobar si funciona su metodo getValue(), que llama a ValueService, por ende los valores o la logica de esa clase no nos interesa.
+
+es por esto que no usaremos una clase real sino fake, porque no nos importa que haga esa clase sino el resultado de la misma
+
+value-fake.service.ts
+```
+export class FakeValueService {
+
+  constructor() { }
+
+  getValue() {
+    return 'fake value';
+  }
+
+  setValue(value: string) {}
+
+  getPromiseValue() {
+    return Promise.resolve('fake promise value');
+  }
+}
+```
+
+value-fake.service.ts
+```
+import { MasterService } from './master.service';
+import { ValueService } from './value.service';
+import { FakeValueService } from './value-fake.service';
+
+describe('MasterService', () => {
+  it('should return "my value" from the real service', () => {
+    const valueService = new ValueService();
+    const masterService = new MasterService(valueService);
+    expect(masterService.getValue()).toBe("my value");
+  });
+  it('should return "some value" from the fake service', () => {
+    const fakeValueService = new FakeValueService();
+    const masterService = new MasterService(fakeValueService as unknown as ValueService);
+    expect(masterService.getValue()).toBe("fake value");
+  });
+});
+```
+
+Esta forma no es recomendada, porque hay que mantener una clase fake que depende de los cambios de value.service.ts Es mejor con un objeto fake, en el mismo test.
+
+master.service.spec.ts
+```
+  it('should return "some value" from the fake object', () => {
+    const fake = {getValue: ()=> 'fake from obj'};
+    const masterService = new MasterService(fake as ValueService);
+    expect(masterService.getValue()).toBe("fake from obj");
+  });
+```
+
+
+
+## Spies [vídeo-9]
+
+Saber si se ha llamado a un método de una clase, usando spies.
+
+master.service.spec.ts
+```
+  it('should call a getValue() from valueService', () => {
+    const valueServiceSpy = jasmine.createSpyObj('ValueService', ['getValue']); // ahora usará el método de la clase
+    valueServiceSpy.getValue.and.returnValue('fake spy value');   // simula el envío
+    const masterService = new MasterService(valueServiceSpy);
+    expect(masterService.getValue()).toBe("fake spy value");    // qué recibe
+    expect(valueServiceSpy.getValue).toHaveBeenCalled();        // ¿fue llamado el método?
+    expect(valueServiceSpy.getValue).toHaveBeenCalledTimes(1);  // ¿cuantas veces fue llamado?
+  });
+```
+
+![que es un mock](snapshots/007_queesunmock.png)
+
+
+## Angular testbed [vídeo-10]
+
+value.service.spec.ts
+```
+import { TestBed } from '@angular/core/testing';
+import { ValueService } from './value.service';
+
+describe('ValueService', () => {
+  let service: ValueService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [ ValueService ]
+    });
+    service = TestBed.inject(ValueService); // se crea una instancia con el patron singleton en toda la app
+  });
+```
+
+value.service.spec.ts
+```
+import { TestBed } from '@angular/core/testing';
+
+import { MasterService } from './master.service';
+import { ValueService } from './value.service';
+import { FakeValueService } from './value-fake.service';
+
+
+describe('MasterService', () => {
+  let masterService: MasterService;
+  let valueService: ValueService;
+  let fakeValueService: FakeValueService;
+  beforeEach(()=>{
+    TestBed.configureTestingModule({
+      providers: [MasterService, ValueService, FakeValueService]
+    });
+    masterService = TestBed.inject(MasterService);
+    valueService = TestBed.inject(ValueService);
+    fakeValueService = TestBed.inject(FakeValueService);
+  });
+```
+
+
+## TestBed + Spies [vídeo-11]
+
+master.service.spec.ts
+```
+import { TestBed } from '@angular/core/testing';
+
+import { MasterService } from './master.service';
+import { ValueService } from './value.service';
+// import { FakeValueService } from './value-fake.service';
+
+
+describe('MasterService', () => {
+  let masterService: MasterService;
+  let valueServiceSpy: jasmine.SpyObj<ValueService>
+
+  beforeEach(()=>{
+    const spy = jasmine.createSpyObj('ValueService', ['getValue']);
+    TestBed.configureTestingModule({
+      providers: [
+        MasterService, { provide: ValueService, useValue: spy }
+      ]
+    });
+    masterService = TestBed.inject(MasterService);
+    valueServiceSpy = TestBed.inject(ValueService) as jasmine.SpyObj<ValueService>;
+  });
+
+  it('should be create masterService',()=>{
+    expect(masterService).toBeTruthy();
+  });
+
+  it('should call a getValue() from valueService', () => {
+    // const valueServiceSpy = jasmine.createSpyObj('ValueService', ['getValue']); // es un spy inyectado
+    valueServiceSpy.getValue.and.returnValue('fake spy value');   // simula el envío del valor a través del espia
+    // const masterService = new MasterService(valueServiceSpy); // ya no necesitamos crearlo directamente, xqw está inyectado
+    expect(masterService.getValue()).toBe("fake spy value");    // qué recibe
+    expect(valueServiceSpy.getValue).toHaveBeenCalled();        // ¿fue llamado el método?
+    expect(valueServiceSpy.getValue).toHaveBeenCalledTimes(1);  // ¿cuantas veces fue llamado?
+  });
+});
+```
+
+
+## Setup y maquetación del proyecto [vídeo-12]
+
+Frameworks minimos de css semánticos (sin clases) para maquetación:
+  1. [Milligram](https://milligram.io/)   
+  
+  > npm install milligram
+
+angular.json
+```
+  "styles": [
+      "src/styles.scss",
+      "node_modules/@picocss/pico/css/pico.min.css"
+  ],
+```
+
+  2. [Simple.css](https://simplecss.org/)
+  3. [Pico.css](https://picocss.com/)
+
+## Product Services Http [vídeo-13]
+
+## HttpClientTestingModule [vídeo-14]
+
+## Generando mocks [vídeo-15]
+
+## Pruebas para GET [vídeo-16]
+
+## Pruebas maliciosas para get [vídeo-17]
+
+## Pruebas para POST [vídeo-18]
+
+## Pruebas para PUT y DELETE [vídeo-19]
+
+## Pruebas a errores [vídeo-20]
+
+## Pruebas con interceptores [vídeo-21]
+
+## Pruebas al login [vídeo-22]
+
+## Pruebas a la API del navegador [vídeo-23]
+
+## GitHub Actions [vídeo-24]
+
+## fin [vídeo-25]
+
+##### CURSO DE ANGULAR: UNIT TESTING PARA COMPONENTES #####
+
+
+
+
+
+
+
+
+
+
+
