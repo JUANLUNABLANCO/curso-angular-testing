@@ -716,16 +716,23 @@ export class ValueService {
 
 value.spec.ts
 ```
+import { 'ValueService' } form './value.service';
+beforeEach(()=>{ // se usará una nueva instancia en cada it
+  let service = new ValueService();
+});
+it(()=>{ // primera prueba obligatoria para ver que el servicio fue creado
+  expect(service).toBeTruthy();
+})
+// promesas con then() y doneFN
 it('should return "promise value" from a promise', (doneFn)=>{
       service.getPromiseValue()
       .then((value)=>{
         expect(value).toBe("promise value");
         doneFn();
       });
-```
-promesas
 
-```
+
+// promesas con async await
 describe('Tests for getPromiseValue()', ()=>{
     it('should return "promise value" from a promise', async ()=>{
       const rta = await service.getPromiseValue()
@@ -734,18 +741,84 @@ describe('Tests for getPromiseValue()', ()=>{
     });
 ```
 
+con fdescribe() se focaliza en ese describe y las demás pruebas no las realiza
+
 ## servicios con dependencias [vídeo-8]
 
 > ng g s services/master
 
-> ng g s services/value-fake
+master.service no hace literalmente nada solo llama value.service, para que podamos entender un servicio que depende de otro.
+
+value.service.ts
+```
+import { Injectable } from '@angular/core';
+import { ValueService } from './value.service';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class MasterService {
+
+  constructor(
+    private valueService: ValueService
+  ) { }
+
+  getValue() {
+    return this.valueService.getValue();
+  }
+}
+```
+
+master.service.spec.ts
+```
+import { MasterService } from './master.service';
+import { ValueService } from './value.service';
+
+describe('MasterService', () => {
+  it('should return 'my value' from the real service (valueService)', ()=>{
+    let valueService: new ValueService();
+    let masterService: new MasterService(valueService);
+    expect(masterService.getValue()).toBe('my value');
+  });
+});
+```
+Esto debería funcionar perfectamente, > ng test funciona
+pero mira esto
 
 ![getvalue](snapshots/006_getValue.png)
+
+cual es la responsabilidad de cada servicio,
+  1. en value.service es obtener un valor,
+  2. pero en master.service es ejecutar un método de value.service
+
+Las responsabilidades son diferentes, pero value.service ya tiene pruebas válidas en value.service.spec, por tanto para probar master.service no necesitamos probar value.service ni sus métodos.
+
+Por este motivo, debemos crear un servicio fake de value.service que haga el trabajo sucio de la dependencia de value.service en vez de llamar directamente a value.service, a esta técnica de testing se le llama creación de mocks para testing
+
+> ng g s services/value-fake  // no hagas esto, no es un servicio, es una clase sin inyección de dependencias ni nada
+
+value-fake.service.ts
+```
+export class FakeValueService {
+
+  constructor() { }
+
+  getValue() {
+    return 'fake value'; // lo retorna directamente sin this.value;
+  }
+
+  setValue(value: string) {}
+
+  getPromiseValue() {
+    return Promise.resolve('fake promise value');
+  }
+}
+```
 
 La responsabilidad de valueService es retornar un valor
 la responsabilidad de masterService es comprobar si funciona su metodo getValue(), que llama a ValueService, por ende los valores o la logica de esa clase no nos interesa.
 
-es por esto que no usaremos una clase real sino fake, porque no nos importa que haga esa clase sino el resultado de la misma
+Es por esto que no usaremos una clase real sino fake, porque no nos importa que haga esa clase sino el resultado de la misma
 
 value-fake.service.ts
 ```
@@ -785,6 +858,7 @@ describe('MasterService', () => {
 });
 ```
 
+
 Esta forma no es recomendada, porque hay que mantener una clase fake que depende de los cambios de value.service.ts Es mejor con un objeto fake, en el mismo test.
 
 master.service.spec.ts
@@ -796,19 +870,66 @@ master.service.spec.ts
   });
 ```
 
+Ahora todo junto, que sabemos funciona, pero que optaremos por la primera o la segunda estrategia
 
+master.service.spec.ts
+```
+  import { FakeValueService } form './fake-value-service';
+
+  // ESCALABLE Y MANTENIBLE, llamada al servicio real
+  // Estrategia usando los servicios reales, usado en servicios simples
+  it('should return "my value" from the real service', () => {
+    let valueService: new ValueService();
+    const masterService = new MasterService(valueService);
+    expect(masterService.getValue()).toBe("my value");
+  });
+
+  // Estrategia con mock del servicio // NO uses esta estrategia porque estás doblando código y si value cambia debes cambiar el mock
+  // INMANTENIBLE NO LO USES
+  it('should return "some value" from the fake service', () => {
+    // y usamos ese mock de value.service --> value-fake.service
+    const fakeValueService = new FakeValueService();
+    // haciéndolo pasar por el real
+
+    // WARNING esto es muy duro tio!!! fakeValueService as unknown as ValueService!!!
+    const masterService = new MasterService(fakeValueService as unknown as ValueService);
+    expect(masterService.getValue()).toBe("fake value");
+  });
+  // INMANTENIBLE NO LO USES
+
+  // ESCALABLE Y MANTENIBLE. Creación de un objeto literal al vuelo que simula el servicio.
+  // Estrategia usando un objeto al vuelo que simula el servicio, para suplantar el servicio real, debido a cuestiones de $$ y velocidad, imagina que el servicio es una API externa que consume $$ en cada petición, por ejemplo GOOGLEMAPS, ... O pagos con tarjetas, ...
+  it('should return "some value" from the fake object', () => {
+    const fake = {getValue: ()=> 'fake from obj'};
+    const masterService = new MasterService(fake as ValueService);
+    expect(masterService.getValue()).toBe("fake from obj");
+  });
+  // ESCALABLE Y MANTENIBLE.
+```
+
+// WARNING antes de usar ninguno de estos debes saber que existen 'los espías', es una etsrategia de testing para saber si un servicio, o método se usó, lo llama pero sustituye los datos devueltos del método real, // OJOCUIDAO con esto, quizás en casos donde el test acceda a servicos de terceros con costos '$$', esta no sea una buena estartegia.
 
 ## Spies [vídeo-9]
 
 Saber si se ha llamado a un método de una clase, usando spies.
 
+![espias](snapshots/008_testing-espias.png)
+
+
+// ESTRATEGIA DE ESPIAS, mejor que con value-fake.service y fakeObject
 master.service.spec.ts
 ```
   it('should call a getValue() from valueService', () => {
-    const valueServiceSpy = jasmine.createSpyObj('ValueService', ['getValue']); // ahora usará el método de la clase
-    valueServiceSpy.getValue.and.returnValue('fake spy value');   // simula el envío
-    const masterService = new MasterService(valueServiceSpy);
-    expect(masterService.getValue()).toBe("fake spy value");    // qué recibe
+    const valueServiceSpy = jasmine.createSpyObj('ValueService', ['getValue']); // ahora usará el método getValue de la clase ValueService
+    valueServiceSpy.getValue.and.returnValue('fake spy value');   // simula el envío con este mock
+
+    const masterService = new MasterService(valueServiceSpy);  // ahora podemos usar ese valueServiceSpy sin problemas de tipado
+
+    // y ya podemos hacer las pruebas que necesitemos
+    // podemos usar el masterService si queremos
+    expect(masterService.getValue()).toBe("fake spy value");    // qué recibe del fake, se podría oviar esta prueba, no importa mucho que retorne en este caso, además es simulado.
+
+    // o directamente el spía, que se cerciora de que se usa getValue desde masterService llamando a valueService
     expect(valueServiceSpy.getValue).toHaveBeenCalled();        // ¿fue llamado el método?
     expect(valueServiceSpy.getValue).toHaveBeenCalledTimes(1);  // ¿cuantas veces fue llamado?
   });
@@ -828,9 +949,11 @@ describe('ValueService', () => {
   let service: ValueService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({
+    TestBed.configureTestingModule({  // crea un módulo isolado (independiente del resto para pruebas)
       providers: [ ValueService ]
     });
+    // service = new ValueService(); // sustituimos esto ahora es un servicio inyectado en el modul ode pruebas
+
     service = TestBed.inject(ValueService); // se crea una instancia con el patron singleton en toda la app
   });
 ```
@@ -850,7 +973,12 @@ describe('MasterService', () => {
   let fakeValueService: FakeValueService;
   beforeEach(()=>{
     TestBed.configureTestingModule({
-      providers: [MasterService, ValueService, FakeValueService]
+      providers: [ // esta sería la forma correcta de crear este módulo, inyectando todo lo necesario,
+      // WARNING NO EXACTAMENTE SIGUE MIRANDO LOS VÍDEOS ...
+        MasterService,
+        ValueService,
+        FakeValueService
+        ]
     });
     masterService = TestBed.inject(MasterService);
     valueService = TestBed.inject(ValueService);
@@ -871,28 +999,34 @@ import { ValueService } from './value.service';
 
 
 describe('MasterService', () => {
+  // variables inicializació
   let masterService: MasterService;
-  let valueServiceSpy: jasmine.SpyObj<ValueService>
+  let valueServiceSpy: jasmine.SpyObj<ValueService> // tipo spyObj que se hace pasar por un ValueService
 
   beforeEach(()=>{
+    // creamos primero el espía que usaremos en MasterService
     const spy = jasmine.createSpyObj('ValueService', ['getValue']);
+    // ahora el módulo para testing con ambas dependencias el servicio y el espia dependiente del propio servicio
     TestBed.configureTestingModule({
+      // declaramos los providers del modulo
       providers: [
-        MasterService, { provide: ValueService, useValue: spy }
+        MasterService, { provide: ValueService, useValue: spy } // useValue (sustituyelo por ...)
       ]
     });
+    // i finalmente se inyectan para ser usados
     masterService = TestBed.inject(MasterService);
     valueServiceSpy = TestBed.inject(ValueService) as jasmine.SpyObj<ValueService>;
   });
 
+  // ESTA PRUEBA SIEMPRE HA DE REALIZARSE, de echo angular te la pone por defecto
   it('should be create masterService',()=>{
     expect(masterService).toBeTruthy();
   });
 
   it('should call a getValue() from valueService', () => {
-    // const valueServiceSpy = jasmine.createSpyObj('ValueService', ['getValue']); // es un spy inyectado
+    // INNECESARY const valueServiceSpy = jasmine.createSpyObj('ValueService', ['getValue']); // es un spy inyectado
     valueServiceSpy.getValue.and.returnValue('fake spy value');   // simula el envío del valor a través del espia
-    // const masterService = new MasterService(valueServiceSpy); // ya no necesitamos crearlo directamente, xqw está inyectado
+    // INNECESARY const masterService = new MasterService(valueServiceSpy); // ya no necesitamos crearlo directamente, xqw está inyectado
     expect(masterService.getValue()).toBe("fake spy value");    // qué recibe
     expect(valueServiceSpy.getValue).toHaveBeenCalled();        // ¿fue llamado el método?
     expect(valueServiceSpy.getValue).toHaveBeenCalledTimes(1);  // ¿cuantas veces fue llamado?
@@ -904,9 +1038,14 @@ describe('MasterService', () => {
 ## Setup y maquetación del proyecto [vídeo-12]
 
 Frameworks minimos de css semánticos (sin clases) para maquetación:
-  1. [Milligram](https://milligram.io/)   
-  
-  > npm install milligram
+  1. [Milligram](https://milligram.io/)
+
+  2. [Simple.css](https://simplecss.org/)
+
+  3. [Pico.css](https://picocss.com/)
+
+
+  > npm install @picocss/pico
 
 angular.json
 ```
@@ -916,12 +1055,310 @@ angular.json
   ],
 ```
 
-  2. [Simple.css](https://simplecss.org/)
-  3. [Pico.css](https://picocss.com/)
+Usar etiquetas html semánticas
+
+solo tiene una clase 
+class="container" que deberías usar para hacerlo
+
+<html lan="en" data-theme="light">
+
+> ng g components/products
+> ng g components/pico-preview
+
+app.component.html
+```
+<header class="container">
+    <h1>Angular testing</h1>
+    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Magnam, eum excepturi! Temporibus, cumque suscipit, hic porro ipsa aliquam, voluptatum totam voluptatibus velit nulla corporis rem eos iusto. Unde, sequi quibusdam?</p>
+    <nav>
+        <ul>
+            <li><a routerLink="/">Home</a></li>
+            <li><a routerLink="/products">Productos</a></li>
+            <li><a routerLink="/pico-preview">Pico Preview</a></li>
+        </ul>
+    </nav>
+</header>
+<router-outlet></router-outlet>
+```
+
+app-routing.module.ts
+```
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+
+import { ProductsComponent } from './components/products/products.component';
+import { PicoPreviewComponent } from './components/pico-preview/pico-preview.component';
+
+const routes: Routes = [
+  {
+    path: 'products',
+    component: ProductsComponent
+  },
+  {
+    path: 'pico-preview',
+    component: PicoPreviewComponent
+  }
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule { }
+```
+
+products.component.ts
+```
+<section class="container">
+    <h1>Products Component</h1>
+    <div class="my-grid">
+        <figure *ngFor="let product of products">
+            <img [src]="product.images[0]" alt="product.name">
+            <figcaption>
+                {{product.title}} - {{product.price}}
+            </figcaption>
+        </figure>
+    </div>
+</section>
+```
+
+// VER pico-preview.component.html
+
 
 ## Product Services Http [vídeo-13]
 
+No lo vamos a crear desde cero, sino que ...
+
+copiamos los servicios y modelos del proyecto 'curso de angular router' rama production la última
+
+Luego debes ir a app.module.ts y incorporar HttpClientModule y ReactiveFormsModule a las importaciones
+
+app.module.ts
+```
+  import { HttpClientModule } from '@angular/common/http';
+  import { ReactiveFormsModule } from '@angular/forms';
+  ...
+  imports: [
+    HttpClientModule,
+    ReactiveFormsModule
+  ],
+```
+
+product.service.ts
+```
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpParams, HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
+import { retry, catchError, map } from 'rxjs/operators';
+import { throwError, zip } from 'rxjs';
+
+import { Product, CreateProductDTO, UpdateProductDTO } from './../models/product.model';
+import { environment } from './../../environments/environment';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ProductsService {
+
+  private apiUrl = `${environment.API_URL}/api/v1`;
+
+  constructor(
+    private http: HttpClient
+  ) { }
+
+  getByCategory(categoryId: string, limit?: number, offset?: number){
+    let params = new HttpParams();
+    if (limit && offset != null) {
+      params = params.set('limit', limit);
+      params = params.set('offset', offset);
+    }
+    return this.http.get<Product[]>(`${this.apiUrl}/categories/${categoryId}/products`, { params })
+  }
+
+  // Creamos este método simple para empezar con las pruebas de servicios y obtención de productos
+  getAllSimple() {
+    return this.http.get<Product[]>(`${this.apiUrl}/products`);
+  }
+
+  getAll(limit?: number, offset?: number) {
+    let params = new HttpParams();
+    if (limit && offset != null) {
+      params = params.set('limit', limit);
+      params = params.set('offset', offset);
+    }
+    return this.http.get<Product[]>(`${this.apiUrl}/products`, { params })
+    .pipe(
+      retry(3),
+      map(products => products.map(item => {
+        return {
+          ...item,
+          taxes: .19 * item.price
+        }
+      }))
+    );
+  }
+
+  fetchReadAndUpdate(id: string, dto: UpdateProductDTO) {
+    return zip(
+      this.getOne(id),
+      this.update(id, dto)
+    );
+  }
+
+  getOne(id: string) {
+    return this.http.get<Product>(`${this.apiUrl}/products/${id}`)
+    .pipe(
+      catchError((error: HttpErrorResponse) => {
+        if (error.status === HttpStatusCode.Conflict) {
+          return throwError('Algo esta fallando en el server');
+        }
+        if (error.status === HttpStatusCode.NotFound) {
+          return throwError('El producto no existe');
+        }
+        if (error.status === HttpStatusCode.Unauthorized) {
+          return throwError('No estas permitido');
+        }
+        return throwError('Ups algo salio mal');
+      })
+    )
+  }
+
+  create(dto: CreateProductDTO) {
+    return this.http.post<Product>(`${this.apiUrl}/products`, dto);
+  }
+
+  update(id: string, dto: UpdateProductDTO) {
+    return this.http.put<Product>(`${this.apiUrl}/products/${id}`, dto);
+  }
+
+  delete(id: string) {
+    return this.http.delete<boolean>(`${this.apiUrl}/products/${id}`);
+  }
+}
+```
+
+product.component.html
+```
+<section class="container">
+    <h1>Products Component</h1>
+    <div class="my-grid">
+        <figure *ngFor="let product of products">
+            <img [src]="product.images[0]" alt="product.name">
+            <figcaption>
+                {{product.title}} - {{product.price}}
+            </figcaption>
+        </figure>
+    </div>
+</section>
+```
+
+ya tenemos products component y el servicio que trae los productos desde la api:
+
+// API https://api.escuelajs.co/api/v1/products
+
+también tenemos el html que lo renderiza y el css de una grilla
+
+products.component.scss
+```
+.my-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: auto;
+    grid-gap: 1rem;
+}
+```
+
+Vamos a ver cómo hacemos pruebas de un sertvicio y de http
+
+
 ## HttpClientTestingModule [vídeo-14]
+
+En anteriores servicios que solo gestionaban los datos sin hacer peticiones http usábamos esto:
+
+TestBed.configureTestingModule, pero ahora vamos a usar ClientHttpModule de angular para realizar peticiones, usaremos otra forma para esto:
+
+1. No tenemos en el frontend responsabilidad de la API, si funciona o no, es responsabilidad de los señores de backend. Qué devuelve cuando el servicio cae o falla, ...
+
+2. Por ello haremos mocking de esa solicitud, usando HttpClientTestingModule y HttpTestingController
+
+products.service.spec.ts
+```
+import { TestBed } from '@angular/core/testing';
+import {
+  // para inyectar el modulo HttpClientModule que es una dependencia del productsService
+  HttpClientTestingModule,
+
+  // nos permitirá hacer el mocking de las peticiones
+  HttpTestingController 
+  } from '@angular/common/http/testing';
+
+import { ProductsService } from './products.service';
+import { Product } from '../models/product.model';
+import { environment } from './../../environments/environment';
+
+// hemos hecho focus en este set de pruebas, porque las demás fallará mientras no implementemos ciertas cosas
+fdescribe('ProductsService', () => {
+  let productsService: ProductsService;
+  // declaremos el controller
+  let httpController: HttpTestingController;
+
+  // se debe importar el HttpClientTestingModule en imports y el Product service en providers
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [ HttpClientTestingModule ],
+      providers: [
+        ProductsService
+      ]
+    });
+    productsService = TestBed.inject(ProductsService);
+    httpController = TestBed.inject(HttpTestingController);
+  });
+
+  it('should be create', () => {
+    expect(productsService).toBeTruthy();
+  });
+
+  describe('tests for getAllSimple', () => {
+    it('should return a product list', (doneFn) => {
+      // ARRANGE 
+      const mockData: Product[] = [
+        {
+          id: '123',
+          title: 'title',
+          price: 12,
+          description: 'blabla',
+          category: {
+            id: 112,
+            name: 'as'
+          },
+          images: ['img','img']
+        }
+      ];
+      // ACT 
+      productsService.getAllSimple()
+      .subscribe((data)=> {
+        // ASSERT 
+        expect(data.length).toEqual(mockData.length); // claro si es la misma, la has sustituido
+        expect(data).toEqual(mockData);
+
+        // esto es necesario pues nos hemos suscrito a un observable, y no podemos usar async await, xq no es una promesa, en el it('', (doneFn)) lo recibimos
+        doneFn();
+      });
+
+      // http config, parte del Arrange, debe ir aquí
+      const url = `${environment.API_URL}/api/v1/products`;
+
+      const req = httpController.expectOne(url); // necesitamos este httpController para poder sutituir la ejecución de la petición antes que se produzca
+      req.flush(mockData);  // reemplazar los datos que supuestamente la petición extraería si se ejecutara por estos otros ficticios del mock y para eso sirve el httpController.expectOne(url)
+
+      httpController.verify(); // y verificará si usamos en algun test esta url pasada en expectOne, para actuar
+
+    });
+  });
+
+});
+```
+
+
 
 ## Generando mocks [vídeo-15]
 
