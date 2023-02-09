@@ -1359,10 +1359,173 @@ fdescribe('ProductsService', () => {
 ```
 
 
-
 ## Generando mocks [vídeo-15]
 
+
+¿Cómo generar data de mocks automáticamente?
+Hay una librería que genera datos aleatorios de mocks:
+
+> npm i @faker-js/faker --save-dev
+
+ejemplo.de.uso
+```
+import { faker } from '@faker-js/faker';
+// import { faker } from '@faker-js/faker/locale/de';
+
+export const USERS: User[] = [];
+
+export function createRandomUser(): User {
+  return {
+    userId: faker.datatype.uuid(),
+    username: faker.internet.userName(),
+    email: faker.internet.email(),
+    avatar: faker.image.avatar(),
+    password: faker.internet.password(),
+    birthdate: faker.date.birthdate(),
+    registeredAt: faker.date.past(),
+  };
+}
+
+Array.from({ length: 10 }).forEach(() => {
+  USERS.push(createRandomUser());
+});
+```
+[-- saber más --](https://www.npmjs.com/package/@faker-js/faker)
+
+es bueno crear los mocks dentro de la carpeta models
+
+product.mock.ts
+```
+import {faker}  from '@faker-js/faker'
+
+import { Product } from './product.model';
+
+export const generateOneProduct = (): Product =>{
+  return {
+    id: faker.datatype.uuid(),
+    title: faker.commerce.productName(),
+    price: parseInt(faker.commerce.price(), 10),
+    description: faker.commerce.productDescription(),
+    category: {
+      id: faker.datatype.number(),
+      name: faker.commerce.department()
+    },
+    images: [faker.image.imageUrl(), faker.image.imageUrl()]
+  };
+};
+
+export const generateProducts = (size: number = 10): Product[] => {
+  const products: Product[] = [];
+  for (let index=0; index= size; index++){
+    products.push(generateOneProduct());
+  }
+  return [...products]; // para no tener problemas de mutación ???
+};
+```
+
+Ahora se importa en el spec file
+
+product.service.spec.ts
+```
+  import { generateManyProducts } from '../models/product.mock';
+  ...
+  const mockData: Product[] = generateManyProducts(6);
+```
+
 ## Pruebas para GET [vídeo-16]
+
+products.service.spec.ts
+```
+  describe('tests for getAll', () => {
+    it('should return a product list', (doneFn) => {
+      // Arrange
+      const mockData: Product[] = generateManyProducts(3);
+      // console.log(mockData);
+
+      // Act
+      productsService.getAll()
+      .subscribe((data)=> {
+        // Assert
+        expect(data.length).toEqual(mockData.length);
+        // WARNING aquí hay un error de tipo porque en el método getAll, después de recibir los datos, hacemos un map() y añadimos y cambiamos cosas, por ende hay que forzar a que devuelva un Observable<Product[]> en el método de product.service.ts llamado getAll
+        // getAll(limit?: number, offset?: number): Observable<Product[]> {
+        expect(data).toEqual(mockData);
+
+        // WARNING !!!
+        doneFn();
+      });
+
+      // http config, parte del Arrange
+      const url = `${environment.API_URL}/api/v1/products`;
+      const req = httpController.expectOne(url);
+      req.flush(mockData);
+      // httpController.verify();
+    });
+  });
+```
+
+products.service.spec.ts
+```
+  ...
+
+  describe('tests for getAll', () => {
+    it('should return a product list', (doneFn) => {
+      // Arrange
+      const mockData: Product[] = generateManyProducts(3);
+      // console.log(mockData);
+
+      // Act
+      productsService.getAll()
+      .subscribe((data)=> {
+        // Assert
+        expect(data.length).toEqual(mockData.length);
+        // expect(data).toEqual(mockData); // no son iguales data tiene taxes
+        doneFn();
+      });
+
+      // http config, parte del Arrange
+      const url = `${environment.API_URL}/api/v1/products`;
+      const req = httpController.expectOne(url);
+      req.flush(mockData);
+      httpController.verify();
+    });
+    it('Should return product list with taxes', (doneFn)=>{
+      // Arrange
+      const mockData: Product[] = [
+        {
+          ...generateOneProduct(),
+          price: 100 // 100 * .19 = 19 taxes
+        },
+        {
+          ...generateOneProduct(),
+          price: 200 // 200 * .19 = 38 taxes
+        }
+      ];
+
+      // Act
+      productsService.getAll()
+      .subscribe((data)=> {
+        // Assert
+        expect(data.length).toEqual(mockData.length);
+        // OJOCUIDAO con esto, este dato de tax .19 debería estar en una variable de entorno y calcularlo tax= price * _TAX_
+        expect(data[0].taxes).toEqual(19);
+        expect(data[1].taxes).toEqual(38);
+        doneFn();
+      });
+
+      // http config, parte del Arrange
+      const url = `${environment.API_URL}/api/v1/products`;
+      const req = httpController.expectOne(url);
+      req.flush(mockData);
+      httpController.verify();
+    });
+  });
+});
+
+```
+
+
+
 
 ## Pruebas maliciosas para get [vídeo-17]
 

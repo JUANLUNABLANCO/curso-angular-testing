@@ -3,6 +3,7 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 
 import { ProductsService } from './products.service';
 import { Product } from '../models/product.model';
+import { generateManyProducts, generateOneProduct } from '../models/product.mock';
 import { environment } from './../../environments/environment';
 
 fdescribe('ProductsService', () => {
@@ -27,19 +28,8 @@ fdescribe('ProductsService', () => {
   describe('tests for getAllSimple', () => {
     it('should return a product list', (doneFn) => {
       // Arrange
-      const mockData: Product[] = [
-        {
-          id: '123',
-          title: 'title',
-          price: 12,
-          description: 'blabla',
-          category: {
-            id: 112,
-            name: 'as'
-          },
-          images: ['img','img']
-        }
-      ];
+      const mockData: Product[] = generateManyProducts(6);
+      // console.log(mockData);
 
       // Act
       productsService.getAllSimple()
@@ -54,10 +44,59 @@ fdescribe('ProductsService', () => {
       const url = `${environment.API_URL}/api/v1/products`;
       const req = httpController.expectOne(url);
       req.flush(mockData);
-      httpController.verify();
-
-
+      // httpController.verify();
     });
   });
 
+  describe('tests for getAll', () => {
+    it('should return a product list', (doneFn) => {
+      // Arrange
+      const mockData: Product[] = generateManyProducts(3);
+      // console.log(mockData);
+
+      // Act
+      productsService.getAll()
+      .subscribe((data)=> {
+        // Assert
+        expect(data.length).toEqual(mockData.length);
+        // expect(data).toEqual(mockData); // no son iguales data tiene taxes
+        doneFn();
+      });
+
+      // http config, parte del Arrange
+      const url = `${environment.API_URL}/api/v1/products`;
+      const req = httpController.expectOne(url);
+      req.flush(mockData);
+      httpController.verify();
+    });
+    it('Should return product list with taxes', (doneFn)=>{
+      // Arrange
+      const mockData: Product[] = [
+        {
+          ...generateOneProduct(),
+          price: 100 // 100 * .19 = 19 taxes
+        },
+        {
+          ...generateOneProduct(),
+          price: 200 // 200 * .19 = 38 taxes
+        }
+      ];
+
+      // Act
+      productsService.getAll()
+      .subscribe((data)=> {
+        // Assert
+        expect(data.length).toEqual(mockData.length);
+        expect(data[0].taxes).toEqual(19);
+        expect(data[1].taxes).toEqual(38);
+        doneFn();
+      });
+
+      // http config, parte del Arrange
+      const url = `${environment.API_URL}/api/v1/products`;
+      const req = httpController.expectOne(url);
+      req.flush(mockData);
+      httpController.verify();
+    });
+  });
 });
