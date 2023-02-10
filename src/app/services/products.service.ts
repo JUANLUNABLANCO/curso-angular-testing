@@ -32,9 +32,11 @@ export class ProductsService {
 
   getAll(limit?: number, offset?: number): Observable<Product[]> {
     let params = new HttpParams();
-    if (limit && offset != null) {
-      params = params.set('limit', limit);
-      params = params.set('offset', offset);
+    if (limit != null && offset != null) {
+      if(limit > 0){
+        params = params.set('limit', limit);
+        params = params.set('offset', offset);
+      }
     }
     return this.http.get<Product[]>(`${this.apiUrl}/products`, { params })
     .pipe(
@@ -42,7 +44,7 @@ export class ProductsService {
       map(products => products.map(item => {
         return {
           ...item,
-          taxes: .19 * item.price
+          taxes: item.price > 0 ? .19 * item.price : 0
         }
       }))
     );
@@ -60,15 +62,15 @@ export class ProductsService {
     .pipe(
       catchError((error: HttpErrorResponse) => {
         if (error.status === HttpStatusCode.Conflict) {
-          return throwError('Algo esta fallando en el server');
+          return throwError(()=>'Algo esta fallando en el server');
         }
         if (error.status === HttpStatusCode.NotFound) {
-          return throwError('El producto no existe');
+          return throwError(()=>'El producto no existe');
         }
         if (error.status === HttpStatusCode.Unauthorized) {
-          return throwError('No estas permitido');
+          return throwError(()=>'No estas permitido');
         }
-        return throwError('Ups algo salio mal');
+        return throwError(()=>'Ups algo salio mal');
       })
     )
   }

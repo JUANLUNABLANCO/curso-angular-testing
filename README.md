@@ -1521,21 +1521,661 @@ products.service.spec.ts
     });
   });
 });
-
 ```
-
-
 
 
 ## Pruebas maliciosas para get [vídeo-17]
 
+Escenarios, maliciosos
+
+Imaginemos en los precios, un valor raro, por ejemplo 0 o un número negativo -100, para el 0 yo esperaría un tax de 0 (0 * .19 = 0), pero para un número negativo quiero o espero que tembién me devuelva un 0, aunque sería raro tener un precio negativo, pero si hacemos estos dos tests vemos que la segunda parte del test, cuando es negativo no lo teníamos contemplado en nuestro código...
+
+products.service.spec.ts
+```
+    ...
+      const mockData: Product[] = [
+        {
+          ...generateOneProduct(),
+          price: 100 // 100 * .19 = 19 taxes
+        },
+        {
+          ...generateOneProduct(),
+          price: 200 // 200 * .19 = 38 taxes
+        },
+        {
+          ...generateOneProduct(),
+          price: 0 // 0 * .19 = 0 taxes
+        },
+        {
+          ...generateOneProduct(),
+          price: -100 // we should expect 0 taxes for all the negative prices
+        }
+      ];
+
+      // Act
+      productsService.getAll()
+      .subscribe((data)=> {
+        // Assert
+        expect(data.length).toEqual(mockData.length);
+        expect(data[0].taxes).toEqual(19);
+        expect(data[1].taxes).toEqual(38);
+        expect(data[2].taxes).toEqual(0);
+        expect(data[3].taxes).toEqual(0); // pero esto fallará porque nuestro code no esperaba precios negativos, entonce tenemos un caso que no está contemplado dentro de nuestro código.
+        doneFn();
+```
+
+> ng test
+
+console output
+```
+× 1 test failed
+
+FAILED TESTS:
+  ProductsService
+    tests for getAll
+      × Should return product list with taxes
+```
+
+solución
+
+product.service.ts
+```
+  ...
+  taxes: item.price > 0 ? .19 * item.price : 0
+```
+
+> ng test
+
+console output
+```
+  START:
+    ProductsService
+      √ should be create
+      tests for getAllSimple
+        √ should return a product list
+      tests for getAll
+        √ Should return product list with taxes
+        √ should return a product list
+  ...
+  SUMMARY:
+  √ 4 tests completed
+  i 13 tests skipped
+```
+
+Hagamos un reporte de cobertura para ver cuanto nos falta probar sobre este método
+
+> ng test --no-watch --code-coverage
+
+console output
+```
+=============================== Coverage summary ===============================
+Statements   : 37.93% ( 22/58 )
+Branches     : 23.07% ( 3/13 )
+Functions    : 28% ( 7/25 )
+Lines        : 35.71% ( 20/56 )
+================================================================================
+```
+
+Recuerda, en el archivo de configuración de Karma tenemos unos porcentages mínimos establecidos, que si no son sobrepasados, nos dará un reporte negativo
+
+karma.conf.js
+```
+  check: {
+      global: {
+          statements: 90,
+          branches: 90,
+          functions: 90,
+          lines: 90
+      }
+  }
+```
+
+Mira en el html del reporte, coverage/ng-testing-services/index.html
+
+![coverage report now](snapshots/009_coverage-services.png)
+
+si entras en product.service vemos que hay cosas sin probar, en concreto nos señala los params
+
+![coverage report now](snapshots/010_coverage-sevices-getAll-params.png)
+
+
+Vayamos a probar los params:
+
+```
+    it('should send query params with limit 10 and offset 3', (doneFn) => {
+      // Arrange
+      const mockData: Product[] = generateManyProducts(10); // antes estaba en 3
+      const limit = 10;
+      const offset = 3;
+      // console.log(mockData);
+
+      // Act
+      productsService.getAll(limit, offset)
+      .subscribe((data)=> {
+        // Assert
+        expect(data.length).toEqual(mockData.length);
+        // expect(data).toEqual(mockData); // no son iguales data tiene taxes
+        doneFn();
+      });
+
+      // http config, parte del Arrange
+      const url = `${environment.API_URL}/api/v1/products?limit=${limit}&offset=${offset}`;
+      console.log(url);
+      const req = httpController.expectOne(url);
+      req.flush(mockData);
+      const params = req.request.params;
+      expect(params.get('limit')).toEqual(`${limit}`);
+      expect(params.get('offset')).toEqual(`${offset}`);
+      httpController.verify();
+    });
+```
+
+
+
 ## Pruebas para POST [vídeo-18]
+
+antes de nada, nos hemos dado cuenta de este error de throwError deprecated, no es un error como tal, pero si que
+estará deprecado en breve y podría darnos error en el futuro, con distintas versiones, podemos corregirlo
+
+products.service.ts
+```
+      catchError((error: HttpErrorResponse) => {
+        if (error.status === HttpStatusCode.Conflict) {
+          // return throwError('Algo esta fallando en el server');
+          return throwError(()=>'Algo esta fallando en el server');
+        }
+        if (error.status === HttpStatusCode.NotFound) {
+          // return throwError('El producto no existe');
+          return throwError(()=>'El producto no existe');
+        }
+        if (error.status === HttpStatusCode.Unauthorized) {
+          // return throwError('No estas permitido');
+          return throwError(()=>'No estas permitido');
+        }
+        // return throwError('Ups algo salio mal');
+        return throwError(()=>'Ups algo salio mal');
+      })
+```
+
+el método create en 
+
+products.service.ts
+```
+create(dto: CreateProductDTO) {
+    return this.http.post<Product>(`${this.apiUrl}/products`, dto);
+  }
+```
+
+vamos a generar las pruebas para este método
+
+products.service.spec.ts
+```
+  import {Product, createProductDto} from '../models/product/model';
+  ...
+  describe('test for create', ()=>{
+    it('should return a new product', (doneFn)=>{
+      // ARRANGE
+      const mockData = generateOneProduct();
+      const dto: createProductDto = {
+        title: 'New Product',
+        rpice: 100,
+        images: ['image0', 'image1'],
+        description: 'bal bla bla, bal bla, bla',
+        categoryId: 12
+      };
+
+      // ACT
+      productService.create(dto).subscribe(data =>{
+        // ASSERT
+        expect(data).toEqual(mockData);
+        doneFn();
+      });
+
+      // CONFIG
+      const url = `${environment.API_URL}/api/v1/products`;
+      console.log(url);
+      const req = httpController.expectOne(url);
+      req.flush(mockData);
+      httpController.verify();
+    });
+  });
+```
+
+Una cuestión que seguramente no tenemos en cuenta es la modificación de los datos en backend o in the middle,
+por ejemplo que se modifiquen aunque sean del mismo tipo:
+cosas como dto.title= "otra cosa mariposa", podríamos comprobar que los datos no son modificados desde el origen hasta la finalización del post
+
+```
+// http config
+  ...
+  flush(mockData)
+  expect(req.request.body).toEqual(dto)
+```
+
+haciendo la prueba precisamente en ese punto, después del flush()
+
+porque en el método podría hacerse algo ocmo esto
+
+products.service
+```
+  create(dto: CreateProductDTO) {
+    dto.title = "lo cambio porque me sale de las pelot...";
+    return this.http.post<Product>(`${this.apiUrl}/products`, dto);
+  }
+```
+tambiésn se podría eviatr esto, si ponemos, en el tipado el Readonly, para no poder modificarlo
+
+product.model.ts
+```
+export interface CreateProductDTO extends Readonly<Omit<Product, 'id' | 'category'>> {
+  categoryId: number;
+}
+```
+
+pero igualmente hagamos la prueba para ver cómo se hace:
+
+prdocuts.service.spec.ts
+```
+  describe('test for create', ()=>{
+    it('should return a new product', (doneFn)=>{
+      // ARRANGE
+      const mockData = generateOneProduct();
+      const dto: CreateProductDTO = {
+        title: 'New Product',
+        price: 100,
+        images: ['image0', 'image1'],
+        description: 'bal bla bla, bal bla, bla',
+        categoryId: 12
+      };
+
+      // ACT
+      productsService.create({...dto}).subscribe(data =>{
+        // ASSERT
+        expect(data).toEqual(mockData);
+        doneFn();
+      });
+
+      // CONFIG
+      const url = `${environment.API_URL}/api/v1/products`;
+      console.log(url);
+      const req = httpController.expectOne(url);
+      req.flush(mockData);
+      expect(req.request.body).toEqual(dto);
+      httpController.verify();
+    });
+  });
+```
+
+// EXPLAINING ARRAY MUTATIONS
+Porqué hacemos esto create({...dto}), debido a la mutabilidad de objetos y arrays de js, para que no cambie el original dto, lo que hace es crear uno nuevo y lo envía como parámetro, porque si envía el mismo y este se cambia en algún punto, ambos cambiarán y no tendremos el objeto o array original, hacer esto sobre todo en pruebas.
+
+Explaining mutability
+
+const a = [1,2,3];
+const b = a; // js no crea un nuevo array llamado b con el contenido de a sino que es un apuntador de b hacia a de manera que si cambiamos b esatremos cambiando a también
+
+console.log('b => ', b); // b => [1,2,3]
+
+b[0] = 'change';
+
+console.log('b => ', b); // b => ['change',2,3]
+console.log('a => ', a); // a => ['change',2,3] // ahora a ha cambiado
+
+para evitar esto se suelen usar dos métodos:
+
+1. usando {...variable}
+
+  const b = {...a}; // ahora 'b' es igual a 'a' pero son distintas variables, 'b' no apunta a 'a'
+
+2. usando readonly property
+
+const a: number[] = [1,2,3]; // esto sería igual a esto  const a: Array<number> = [1,2,3];
+
+pero con este nuevo tipado permitido en typescript creamos un array que no es mutable
+
+const a: ReadonlyArray<number> = [1,2,3];
+
+ahora no podrás hacer cosas como esta:
+
+```
+const a: ReadonlyArray<number> = [1,2,3];
+a.push(35); // typescript ya no te lo permite
+```
+
+y pensemos cuando enviamos un parámetro a un método, el parámetro enviado es el original
+create(dto) este dto podemos cambiarlo con dto.title = "un cambio", entonces si preguntamos por dto en estos momentos el cambio se verá reflejado a menos que hagamos una de estas dos cosas
+
+```
+create({...dto})
+```
+
+se creará una copia del dto pero no afecta al original
+o para mejorar esto desde el modelo podemos hacer lo siguiente
+
+```
+export interface CreateProductDTO extends Readonly<Omit<Product, 'id' | 'category'>> {
+  categoryId: number;
+}`
+```
+el Readonly<> hece que sea inmutable
+
+// EXPLAINING ARRAY MUTATIONS
+
+Hagamos otras comprobaciones de este método create(dto)
+
+por ejemplo si se us POST o GET, ...
+
+```
+expect(req.request.method).toEqual('POST');
+```
+
+Otra cosa que podemos hace ren este punto es crear afterEach() para incluir cosas que se hacen en todas las pruebas 
+como por ejemplo: 
+
+```
+afterEach(()=>{
+  httpController.verify();
+});
+```
+
+// SOLUCION AL RETO UPDATE
+  fdescribe('test for update', ()=>{
+    it('should return a product updated, dto should be mutable and http.method is "PUT"', (doneFn)=>{
+      // ARRANGE
+      const mockData = generateOneProduct();
+      const cdto: CreateProductDTO = {
+        title: 'New Product',
+        price: 100,
+        images: ['image0', 'image1'],
+        description: 'bal bla bla, bal bla, bla',
+        categoryId: 12
+      };
+      const udto: UpdateProductDTO = {
+        title: 'product Updated',
+        price: 200
+      };
+
+      // ACT
+      productsService.create({...cdto}).subscribe(data =>{
+        // ARRANGE
+        const updated: Product = {
+          id: data.id,
+          title: 'product Updated',
+          price: 200,
+          images: ['image0', 'image1'],
+          description: 'bal bla bla, bal bla, bla',
+          category: {
+            id: 12,
+            name: data.category.name
+          }
+        };
+        // ASSERT
+        expect(data).toEqual(mockData);
+        productsService.update(data.id, {...udto}).subscribe(dataUpdated => {
+          // ASSERT
+          console.log(dataUpdated);
+          expect(dataUpdated).toEqual(updated);
+          doneFn();
+        });
+        // CONFIG
+        const url = `${environment.API_URL}/api/v1/products/${data.id}`;
+        const req = httpController.expectOne(url);
+        req.flush(updated);
+        expect(req.request.body).toEqual(udto);
+        expect(req.request.method).toEqual('PUT');
+        httpController.verify();
+      });
+
+      // CONFIG
+      const url = `${environment.API_URL}/api/v1/products`;
+      // console.log(url);
+      const req = httpController.expectOne(url);
+      req.flush(mockData);
+      expect(req.request.body).toEqual(cdto);
+      expect(req.request.method).toEqual('POST');
+      // httpController.verify();
+    });
+  });
+// SOLUCION AL RETO UPDATE
+Esta fue mi solución, lejos de la propuesta por Nicolás que era mucho más simple ... [vídeo-19]
 
 ## Pruebas para PUT y DELETE [vídeo-19]
 
+products.service.spec.ts
+```
+  describe('test for update', () => {
+    it('should update a product', (doneFn) => {
+      // Arrange
+      const mockData: Product = generateOneProduct();
+      const dto: UpdateProductDTO = {
+        title: 'updated product',
+      }
+      const productId = '1';
+      // Act
+      productsService.update(productId, {...dto})
+      .subscribe((data) => {
+        // Assert
+        expect(data).toEqual(mockData);
+        doneFn();
+      });
+
+      // http config
+      const url = `${environment.API_URL}/api/v1/products/${productId}`;
+      const req = httpController.expectOne(url);
+      expect(req.request.method).toEqual('PUT');
+      expect(req.request.body).toEqual(dto);
+      req.flush(mockData);
+    });
+  });
+  describe('test for delete', () => {
+    it('should delete a product', (doneFn) => {
+      // Arrange
+      const mockData = true; // el método delete de esta API devuelve true si lo borra
+      const productId = '1';
+      // Act
+      productsService.delete(productId)
+      .subscribe((data) => {
+        // Assert
+        expect(data).toEqual(mockData);
+        doneFn();
+      });
+
+      // http config
+      const url = `${environment.API_URL}/api/v1/products/${productId}`;
+      const req = httpController.expectOne(url);
+      expect(req.request.method).toEqual('DELETE');
+      req.flush(mockData);
+    });
+  });
+```
+
 ## Pruebas a errores [vídeo-20]
 
+products.service.ts
+```
+  describe('test for getOne, Manejo de errores', () => {
+    it('should get one a product', (doneFn) => {
+      // Arrange
+      const mockData: Product = generateOneProduct();
+      const productId = '1';
+      // Act
+      productsService.getOne(productId)
+      .subscribe((data) => {
+        // Assert
+        expect(data).toEqual(mockData);
+        doneFn();
+      });
+
+      // http config
+      const url = `${environment.API_URL}/api/v1/products/${productId}`;
+      const req = httpController.expectOne(url);
+      expect(req.request.method).toEqual('GET');
+      req.flush(mockData);
+    });
+    it('should return the right msg when the status code is 404', (doneFn) => {
+      // Arrange
+      const msgError= '404 message';
+      const productId = '1';
+      // enviamos un error en vez de un producto
+      const mockError = {
+        status: HttpStatusCode.NotFound,
+        statusText: msgError
+      }
+      // Act
+      productsService.getOne(productId)
+      .subscribe({
+        error: (error)=>{
+          // ASSERT
+          expect(error).toEqual('El producto no existe');
+          doneFn();
+        }
+      });
+
+      // WARNING si no estás en una versión de rxjs superior a 7.5
+      productsService.getOne(productId)
+      .subscribe(null, (error)=>{
+          // ASSERT
+          expect(error).toEqual('El producto no existe');
+          doneFn();
+      });
+      // esto es debido a que subscribe tiene esta forma: 
+      subscribe(
+        ()=>{}, // funtion resolve o null
+        ()=>{}  // function error o null o nada
+      );
+      pero en las nuevas versiones de rxjs puedes usar la key subscribe({error: (err)=>{}}); 
+      // WARNING si no estás en una versión de rxjs superior a 7.5
+
+
+      // http config
+      const url = `${environment.API_URL}/api/v1/products/${productId}`;
+      const req = httpController.expectOne(url);
+      expect(req.request.method).toEqual('GET');
+      req.flush(msgError, mockError);
+    });
+    it('should return the right msg when the status code is 409', (doneFn) => {
+      // Arrange
+      const id = '1';
+      const msgError = '409 message';
+      const mockError = {
+        status: HttpStatusCode.Conflict,
+        statusText: msgError,
+      };
+      // Act
+      productsService.getOne(id).subscribe({
+        error: (error) => {
+          // assert
+          expect(error).toEqual('Algo esta fallando en el server');
+          doneFn();
+        },
+      });
+      //http config
+      const url = `${environment.API_URL}/api/v1/products/${id}`;
+      const req = httpController.expectOne(url);
+      req.flush(msgError, mockError);
+      expect(req.request.method).toEqual('GET');
+    });
+    it('should return the right msg when the status code is 401', (doneFn) => {
+      // Arrange
+      const id = '1';
+      const msgError = '409 message';
+      const mockError = {
+        status: HttpStatusCode.Unauthorized,
+        statusText: msgError,
+      };
+      // Act
+      productsService.getOne(id).subscribe({
+        error: (error) => {
+          // assert
+          expect(error).toEqual('No estas permitido');
+          doneFn();
+        },
+      });
+      //http config
+      const url = `${environment.API_URL}/api/v1/products/${id}`;
+      const req = httpController.expectOne(url);
+      req.flush(msgError, mockError);
+      expect(req.request.method).toEqual('GET');
+    });
+    it('should return the right msg when the status code is 500', (doneFn) => {
+      // Arrange
+      const id = '1';
+      const msgError = '500 message';
+      const mockError = {
+        status: HttpStatusCode.BadGateway,
+        statusText: msgError,
+      };
+      // Act
+      productsService.getOne(id).subscribe({
+        error: (error) => {
+          // assert
+          expect(error).toEqual('Ups algo salio mal');
+          doneFn();
+        },
+      });
+      //http config
+      const url = `${environment.API_URL}/api/v1/products/${id}`;
+      const req = httpController.expectOne(url);
+      req.flush(msgError, mockError);
+      expect(req.request.method).toEqual('GET');
+    });
+  });
+```
+
+
 ## Pruebas con interceptores [vídeo-21]
+
+Primero vamos a crear un interceptor, puesto que en este proyecto no tenemos ninguno.
+
+Curso angular router: Nos traemos el 1 y el 2 y modificamos el 3
+  1. src/app/interceptors/token.interceptor.ts
+  2. src/app/services/token.service.ts
+  3. src/app/app.module.ts
+
+Si nosotros incorporamos este interceptor en nuestro módulo de pruebas, cada petición http tendrá ese interceptor,
+a no ser que hagamos un contexto, para ciertas peticiones
+
+products.service.spec.ts
+```
+import { HTTP_INTERCEPTORS } from '@angular/common/http';
+import { TokenService } from './token.service';
+import { TokenInterceptor } from '../interceptors/token.interceptor';
+beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [ HttpClientTestingModule ],
+      providers: [
+        ProductsService,
+        TokenService,
+        {
+          provide: HTTP_INTERCEPTORS,
+          useClass: TokenInterceptor,
+          multi: true
+        }
+      ]
+    });
+    productsService = TestBed.inject(ProductsService);
+    httpController = TestBed.inject(HttpTestingController);
+    tokenService = TestBed.inject(TokenService);
+  });
+  ...
+    describe('tests for getAllSimple and token interceptor', () => {
+    it('should return a product list', (doneFn) => {
+      // Arrange
+      const mockData: Product[] = generateManyProducts(6);
+      // otra forma de crear un spia, recuerda en master.service.spec.ts tienes otra forma
+      spyOn(tokenService, 'addToken').and.returnValue('token123nekot');
+    ...
+    // http config
+    ...
+    const headers = req.request.headers;
+    expect(headers.get('Authorization')).toEqual('Bearer token123321nekot')
+```
+// QUESTION Deberías hacer pruebas unitarias al propio interceptor sin integrarlo en nada
+
+Esto que hemos hecho del inetrceptor inyectado aquí, se puede hacer también con un spy creado para ello
+
+A este tipo de pruebas que estamos haciendo podemos llamarla casi integration Test, pues estamos probando el productsService junto al interceptor, al mismo tiempo.
+
 
 ## Pruebas al login [vídeo-22]
 
