@@ -2179,9 +2179,155 @@ A este tipo de pruebas que estamos haciendo podemos llamarla casi integration Te
 
 ## Pruebas al login [vídeo-22]
 
+auth.service.spec.ts
+```
+it('should save a token in localStorage',(doneFn)=>{
+      // Arrange
+
+      const mockToken: Auth = {access_token: tokenFake};
+      const email = "johnmoon@mail.com";
+      const password = "1234";
+      // espiamos la función pero no se ejecuta realmente callThrought
+      spyOn(tokenService, 'saveToken').and.callThrough();
+
+      // Act
+      authService.login(email, password)
+      .subscribe((data)=> {
+        // Assert
+        expect(data).toEqual(mockToken);
+        expect(tokenService.saveToken).toHaveBeenCalledTimes(1);
+        expect(tokenService.saveToken).toHaveBeenCalledOnceWith(tokenFake);
+        doneFn();
+      });
+
+      // http config, parte del Arrange
+      const url = `${environment.API_URL}/api/v1/auth/login`;
+      const req = httpController.expectOne(url);
+      req.flush(mockToken);
+    });
+```
+
+
 ## Pruebas a la API del navegador [vídeo-23]
 
+> ng g s service/maps
+
+maps.service.ts
+```
+import { Injectable } from '@angular/core';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class MapsService {
+
+  center = { lat: 0, long: 0};
+
+  constructor() { }
+  getCurrentPosition() {
+    navigator.geolocation.getCurrentPosition((response) => {
+      const {latitude, longitude } = response.coords;
+      this.center = { lat: latitude, long: longitude};
+    });
+  }
+}
+```
+
+maps.service.spec.ts
+```
+import { TestBed } from '@angular/core/testing';
+
+import { MapsService } from './maps.service';
+
+fdescribe('MapsService', () => {
+  let mapService: MapsService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers:[MapsService]
+    });
+    mapService = TestBed.inject(MapsService);
+  });
+
+  it('should be created', () => {
+    expect(mapService).toBeTruthy();
+  });
+
+  describe('Test for getCurrentPosition', ()=>{
+    it('should save center', ()=>{
+      spyOn(navigator.geolocation, 'getCurrentPosition').and.callFake((successFn)=>{
+
+        // sacado de  C:\Users\desar\AppData\Local\Programs\Microsoft VS Code\resources\app\extensions\node_modules\typescript\lib/lib.dom.d.ts/GeolocationCoordinates
+        // al forma para encontrar este objeto en nuestra máquina es o haciendo console log del objeto navigator.geolocation o pinchando en el objeto navigator.geolocation.getCurrentPosition, que nos llevará a la librería de origen para ver cual es ese obejto y qué modelo implementa
+
+        const mockGeolocation = {
+          coords: {
+            accuracy: 0,
+            altitude: 0,
+            altitudeAccuracy: 0,
+            heading: 0,
+            latitude: 1000,
+            longitude: 2000,
+            speed: 0
+          },
+          timestamp: 0
+        };
+        successFn(mockGeolocation);
+
+        // ACT
+        mapService.getCurrentPosition();
+
+        // ASSERT
+        expect(mapService.center.lat).toEqual(1000);
+        expect(mapService.center.long).toEqual(2000);
+
+      });
+    });
+  });
+});
+
+```
+
+
 ## GitHub Actions [vídeo-24]
+
+crea el fichero .github/workflows/ci.yml
+
+ci.yml
+```
+name: Ci for Angular
+on: push  // cuando se va a correr este yml
+jobs: // rutinas de trabajo de yaml
+  unit-test:  // como se llama la primera rutina de trabajo
+    runs-on: ubuntu-latest  // la máquina donde se correrá este job
+    steps:  // pasos a correr
+      - name: Clonar Repo
+        uses: actions/checkout@v2 // copiará el repo en la máquina, este comando hará esto git clone
+
+      - name: Node Setup
+        uses: actions/setup-node@v2  // comando que instalará node en esa máquina
+        with:
+          node-version: 16.x
+
+      - name: Install Dependencies
+        run: npm ci // npm install en un entorno de CI
+
+      - name: Testing
+        run: ng test --no-watch --code-coverage --browsers=ChromeHeadlessCI
+```
+
+Añadir esta configuración a karma para el testing en CI de github actions
+karma.conf.js
+```
+    browaers: ['ChromeHeadless']
+    customLaunchers: {
+        ChromeHeadlessCI: {
+          base: 'ChromeHeadless',
+          flags: ['--no-sandbox']
+        }
+    },
+```
+
 
 ## fin [vídeo-25]
 

@@ -1,0 +1,19 @@
+name: Ci for Angular
+on: push
+jobs:
+  unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar Repo
+        uses: actions/checkout@v2
+
+      - name: Node Setup
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16.x
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Testing
+        run: ng test --no-watch --code-coverage --browsers=ChromeHeadlessCI
