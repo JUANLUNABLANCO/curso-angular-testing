@@ -2339,20 +2339,35 @@ ahora subir al repo, rama adecuada:
 
 dirígete al github del proyecto y en la pestaña de Actions, podrás ver ese job trabajando
 
+![github-actions working](snapshots/011_github-actions.png)
+
 El test se ha ejecutado pero ha salido con este error: Error: Process completed with exit code 1.
 
 Esto es debido al humbral del coverage y por otro lado tienes un focus en un describe que impide pasar todas las poruebas, cambia eso en karma.conf.js, también fíjate que laspruebas a componentes fallan porque no las hemos hecho, eso es parte del curso de 'Angular Testing Components', que veremos a continuación.
 
 Una de dos o borras los spec o pones xdescribe en las pruebas para que no la stenga en cuenta
 
+![github-actions test pass job ok](snapshots/012_no-errors-ci-pass.png)
 
 
-![github-actions working](snapshots/011_github-actions.png)
+Para saber más de esto CI, puedes mirar videotutoriales sobre CI con gitlab, jenkins, etc
+Y también cursos que ya distes:
 
+https://platzi.com/cursos/github-actions/   ✓
+https://platzi.com/cursos/docker            ✓
+https://platzi.com/cursos/jenkins-basico/   ✓
+https://platzi.com/cursos/despliegue-apps/
+
+Otros interesantes: 
+
+https://platzi.com/cursos/arquitectura-software/
 
 
 
 ## fin [vídeo-25]
+
+
+
 
 ##### CURSO DE ANGULAR: UNIT TESTING PARA COMPONENTES #####
 
