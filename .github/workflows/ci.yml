@@ -16,4 +16,4 @@ jobs:
         run: npm ci
 
       - name: Testing
-        run: ng test --no-watch --code-coverage --browsers=ChromeHeadlessCI
+        run: npx ng test --no-watch --code-coverage --browsers=ChromeHeadlessCI

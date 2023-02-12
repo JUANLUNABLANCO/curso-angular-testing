@@ -2313,7 +2313,10 @@ jobs: // rutinas de trabajo de yaml
         run: npm ci // npm install en un entorno de CI
 
       - name: Testing
-        run: ng test --no-watch --code-coverage --browsers=ChromeHeadlessCI
+        run: npx ng test --no-watch --code-coverage --browsers=ChromeHeadlessCI 
+        
+        // npx le dice que ejecute el ng inetrno de la app, si solo pones ng, se irá al global y enesa máquina no tenemos un ng cli instalado, 
+        podríamos haberlo instalado con npm ci && npm -g i @angular/cli, pero no es necesario y habrían dos instlados, ...
 ```
 
 Añadir esta configuración a karma para el testing en CI de github actions
@@ -2327,6 +2330,16 @@ karma.conf.js
         }
     },
 ```
+
+ahora subir al repo, rama adecuada:
+
+> git add .
+> git commit -m "config GitHub Actions"
+> git psuh origin main
+
+dirígete al github del proyecto y en la pestaña de Actions, podrás ver ese job trabajando
+
+![github-actions working](snapshots/011_github-actions.png)
 
 
 ## fin [vídeo-25]
