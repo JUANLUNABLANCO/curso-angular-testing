@@ -2341,11 +2341,15 @@ dirígete al github del proyecto y en la pestaña de Actions, podrás ver ese jo
 
 El test se ha ejecutado pero ha salido con este error: Error: Process completed with exit code 1.
 
-Esto es debido al humbral del coverage y por otro lado tienes un focus en un describe que impide pasar todas las poruebas, cambia eso en karma.conf.js
+Esto es debido al humbral del coverage y por otro lado tienes un focus en un describe que impide pasar todas las poruebas, cambia eso en karma.conf.js, también fíjate que laspruebas a componentes fallan porque no las hemos hecho, eso es parte del curso de 'Angular Testing Components', que veremos a continuación.
+
+Una de dos o borras los spec o pones xdescribe en las pruebas para que no la stenga en cuenta
 
 
 
 ![github-actions working](snapshots/011_github-actions.png)
+
+
 
 
 ## fin [vídeo-25]
