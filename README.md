@@ -2313,10 +2313,10 @@ jobs: // rutinas de trabajo de yaml
         run: npm ci // npm install en un entorno de CI
 
       - name: Testing
-        run: npx ng test --no-watch --code-coverage --browsers=ChromeHeadlessCI 
+        <!-- run: npx ng test --no-watch --code-coverage --browsers=ChromeHeadlessCI -->
+        run: npm test -- --no-watch --code-coverage --browsers=ChromeHeadlessCI
         
-        // npx le dice que ejecute el ng inetrno de la app, si solo pones ng, se irá al global y enesa máquina no tenemos un ng cli instalado, 
-        podríamos haberlo instalado con npm ci && npm -g i @angular/cli, pero no es necesario y habrían dos instlados, ...
+        // npx le dice que ejecute el ng interno de la app, si solo pones ng, se irá al global y en esa máquina no tenemos un ng cli instalado de forma global, podríamos haberlo instalado con npm ci && npm -g i @angular/cli, pero no es necesario y habrían dos instalados, ... o podrías poner npm test que usa el inetrno...
 ```
 
 Añadir esta configuración a karma para el testing en CI de github actions
@@ -2338,6 +2338,12 @@ ahora subir al repo, rama adecuada:
 > git psuh origin main
 
 dirígete al github del proyecto y en la pestaña de Actions, podrás ver ese job trabajando
+
+El test se ha ejecutado pero ha salido con este error: Error: Process completed with exit code 1.
+
+Esto es debido al humbral del coverage y por otro lado tienes un focus en un describe que impide pasar todas las poruebas, cambia eso en karma.conf.js
+
+
 
 ![github-actions working](snapshots/011_github-actions.png)
 
