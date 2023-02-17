@@ -1,4 +1,4 @@
-# CURSO DE ANGULAR 05: ANGULAR FORMS
+# CURSO DE ANGULAR 05: ANGULAR TESTING SERVICIOS
 
 [LINK DEL CURSO](https://platzi.com/clases/2897-angular-unit-testing-servicios/47472-jest-vs-jasmine-entornos-de-testing-para-angular/)
 
